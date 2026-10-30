@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/week",
+      "schedule": "0 * * * *"
+    }
+  ],
+  "regions": ["iad1"]
+}
