@@ -105,9 +105,9 @@ pnpm dev
 
 ## Cron Job (auto weekly reset)
 
-`vercel.json` schedules `GET /api/cron/week` at `5 12 * * 1` (12:05 UTC every Monday).
+`vercel.json` schedules `GET /api/cron/week` daily at 12:00 UTC (`0 12 * * *`), which is supported on Vercel Hobby. The handler is idempotent and only rolls the checklist when the team's week changes; the client also checks for a new week every 30 seconds.
 
-> **Vercel Hobby plan:** Hobby plans only support one cron job and it must run at least once per day. If you are on Hobby, change the schedule to `0 12 * * *` (daily at noon UTC) — the handler is idempotent and safe to call every day.
+> **Vercel Hobby plan:** Hobby supports one cron job, with a minimum daily frequency. Keep this schedule at once per day or less frequent; more frequent schedules require a plan that supports them.
 
 The Vercel Cron authenticates with a `Bearer <CRON_SECRET>` header. The client also calls `POST /api/week/check` every 30 seconds and on focus, so the week rolls automatically even if the cron is delayed.
 

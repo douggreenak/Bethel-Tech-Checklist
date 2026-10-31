@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/week",
-      "schedule": "0 * * * *"
+      "schedule": "0 12 * * *"
     }
   ],
   "regions": ["iad1"]
