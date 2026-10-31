@@ -118,7 +118,9 @@ The Vercel Cron authenticates with a `Bearer <CRON_SECRET>` header. The client a
 1. Go to **Vercel → Settings → Environment Variables**.
 2. Update `TEAM_PASSCODE`.
 3. Redeploy (or trigger a re-deployment) — Vercel picks up the new value.
-4. Tell the team the new passcode. Existing sessions remain valid until they expire (90 days).
+4. Tell the team the new passcode. Existing browser sessions remain valid; changing the passcode does not revoke them. To revoke existing sessions, rotate `SESSION_SECRET` and redeploy.
+
+After login, this browser stores an HTTP-only persistent session cookie. The signed session does not expire; the cookie is set to a long lifetime so routine passcode re-entry is not required. Clearing browser data or using a different browser/device requires logging in again.
 
 ---
 
