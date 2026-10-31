@@ -185,6 +185,11 @@ a:focus-visible,
   .sb:hover {
     transform: scale(1.06);
   }
+
+  .import-file-label:hover {
+    transform: translateY(-1px);
+    background-color: var(--pc);
+  }
 }
 
 .editin:focus,
@@ -215,6 +220,46 @@ a:focus-visible,
   transition:
     border-color var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.import-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+  border: 0;
+}
+
+.import-file-input:focus-visible + .import-file-hint {
+  outline: 3px solid var(--acc);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.import-file-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--sch);
+  color: var(--ink);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    transform var(--motion-base) var(--ease-emphasized),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.import-file-hint {
+  margin: 8px 0 12px;
+  color: var(--mute);
+  font-size: .85rem;
 }
 
 .page-title-row {

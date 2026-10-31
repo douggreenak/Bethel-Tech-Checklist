@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseImportPayload } from "../../lib/import";
+import {
+  formatImportValidationError,
+  parseImportPayload,
+  parseImportText,
+} from "../../lib/import";
 
 const backupV1 = {
   format: "church-tech-checklist-backup",
@@ -120,5 +124,27 @@ describe("backup import parser", () => {
       star: false,
     });
     expect(parsed.defaultDueDay).toBeUndefined();
+  });
+
+  it("accepts a UTF-8 BOM and reports malformed JSON without losing the parse error", () => {
+    expect(parseImportText(`\uFEFF ${JSON.stringify(backupV1)} \n`)).toEqual(backupV1);
+    expect(() => parseImportText("{broken")).toThrow(/Invalid JSON:/);
+  });
+
+  it("reports the exact path of unexpected backup fields", () => {
+    try {
+      parseImportPayload({
+        ...backupV1,
+        data: {
+          ...backupV1.data,
+          tasks: [{ ...backupV1.data.tasks[0], unexpected: "not silently ignored" }],
+        },
+      });
+      throw new Error("Expected invalid backup to fail");
+    } catch (error) {
+      expect(error).toMatchObject({
+        message: expect.stringContaining("data.tasks[0]: Unexpected field: unexpected"),
+      });
+    }
   });
 });

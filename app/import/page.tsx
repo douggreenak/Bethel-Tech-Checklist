@@ -3,9 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { applyTheme, THEME_STORAGE_KEY, ThemeConfig } from "@/lib/theme";
+import { parseImportText } from "@/lib/import";
+
+const MAX_IMPORT_FILE_BYTES = 4 * 1024 * 1024;
 
 export default function ImportPage() {
   const [jsonText, setJsonText] = useState("");
+  const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,9 +22,9 @@ export default function ImportPage() {
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(jsonText.trim());
+      parsed = parseImportText(jsonText);
     } catch (err) {
-      setError(`Invalid JSON: ${err instanceof Error ? err.message : "Unable to parse input"}`);
+      setError(err instanceof Error ? err.message : "Invalid JSON. Check the file contents and try again.");
       setResult(null);
       return;
     }
@@ -62,6 +66,35 @@ export default function ImportPage() {
     }
   };
 
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+    setResult(null);
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setError("Backup file is too large. Choose a JSON file smaller than 4 MB.");
+      event.target.value = "";
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".json") && file.type !== "application/json") {
+      setError("Choose a .json backup file.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      parseImportText(text);
+      setJsonText(text.replace(/^\uFEFF/, ""));
+      setFileName(file.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not read this backup file.");
+      setFileName("");
+      event.target.value = "";
+    }
+  };
+
   return (
     <main>
       <div className="page-title-row">
@@ -72,17 +105,34 @@ export default function ImportPage() {
       </div>
 
       <p className="sub">
-        Paste a Church Tech Checklist backup JSON or a legacy export. Categories, tasks,
+        Upload a JSON backup or paste a Church Tech Checklist backup or legacy export.
+        Categories, tasks,
         history, and the current week are imported to the database; device theme and
         collapsed-category settings are restored in this browser. Re-importing updates
         matching IDs instead of duplicating them.
       </p>
 
       <div className="addcard">
+        <label className="import-file-label" htmlFor="backupFile">
+          Choose JSON backup
+        </label>
+        <input
+          id="backupFile"
+          className="import-file-input"
+          type="file"
+          accept=".json,application/json"
+          onChange={handleFileSelected}
+        />
+        <p className="import-file-hint" aria-live="polite">
+          {fileName ? `Selected: ${fileName}. Review the JSON below, then import.` : "You can also paste JSON below. Maximum file size: 4 MB."}
+        </p>
         <textarea
           rows={12}
           value={jsonText}
-          onChange={(e) => setJsonText(e.target.value)}
+          onChange={(e) => {
+            setJsonText(e.target.value);
+            setFileName("");
+          }}
           placeholder='{"format":"church-tech-checklist-backup","formatVersion":1,"data":{...},"settings":{...}}'
           className="import-textarea"
         />

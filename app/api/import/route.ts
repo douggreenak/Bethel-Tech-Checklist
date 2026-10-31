@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { db } from "@/lib/db";
 import { appState, categories, tasks, weekHistory } from "@/lib/schema";
 import { eq } from "drizzle-orm";
-import { parseImportPayload } from "@/lib/import";
+import { ImportPayloadError, parseImportPayload } from "@/lib/import";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,11 +16,13 @@ export async function POST(req: NextRequest) {
     try {
       imported = parseImportPayload(body);
     } catch (err) {
-      if (!(err instanceof z.ZodError)) throw err;
-      return NextResponse.json(
-        { error: err.issues[0]?.message || "Invalid import JSON format" },
-        { status: 400 }
-      );
+      if (err instanceof ImportPayloadError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      if (err instanceof Error && err.message.startsWith("Invalid JSON:")) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
     }
 
     const { categories: importCats, tasks: importTasks, history: importHistory, appState: importState } = imported.data;

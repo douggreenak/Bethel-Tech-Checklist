@@ -376,7 +376,14 @@ test.describe("Church Tech Checklist", () => {
     };
 
     await page.goto("/import");
-    await page.locator("textarea").fill(JSON.stringify(backup));
+    await page.locator("#backupFile").setInputFiles({
+      name: "church-tech-checklist-backup.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(backup)),
+    });
+    await expect(page.locator(".import-file-hint")).toContainText(
+      "church-tech-checklist-backup.json"
+    );
     await page.getByRole("button", { name: "Import" }).click();
     await expect(page.locator(".form-message.success")).toContainText(
       "Imported 2 categories, 1 task, and 1 history record."

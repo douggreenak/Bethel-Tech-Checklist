@@ -118,7 +118,38 @@ export type ImportedSettings = {
   collapsedCategories: Record<string, boolean>;
 };
 
-export function parseImportPayload(input: unknown): {
+export function parseImportText(text: string): unknown {
+  try {
+    return JSON.parse(text.replace(/^\uFEFF/, "").trim());
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+export function formatImportValidationError(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) return "Invalid import JSON format";
+
+  const path = issue.path.length
+    ? issue.path.map((part) => typeof part === "number" ? `[${part}]` : String(part)).join(".").replace(".[", "[")
+    : "JSON";
+  const detail = issue.code === "unrecognized_keys" && "keys" in issue
+    ? `Unexpected field${issue.keys.length === 1 ? "" : "s"}: ${issue.keys.join(", ")}`
+    : issue.message;
+  return `${path}: ${detail}`;
+}
+
+export class ImportPayloadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ImportPayloadError";
+  }
+}
+
+function parseImportPayloadUnchecked(input: unknown): {
   data: z.infer<typeof LegacyImportSchema>;
   defaultDueDay?: number;
   settings?: ImportedSettings;
@@ -128,7 +159,11 @@ export function parseImportPayload(input: unknown): {
     input !== null &&
     "format" in input
   ) {
-    const backup = BackupSchema.parse(input);
+    const backupResult = BackupSchema.safeParse(input);
+    if (!backupResult.success) {
+      throw new Error(formatImportValidationError(backupResult.error));
+    }
+    const backup = backupResult.data;
     if (
       backup.counts.categories !== backup.data.categories.length ||
       backup.counts.tasks !== backup.data.tasks.length ||
@@ -206,4 +241,19 @@ export function parseImportPayload(input: unknown): {
   }
 
   return { data: LegacyImportSchema.parse(input) };
+}
+
+export function parseImportPayload(input: unknown): {
+  data: z.infer<typeof LegacyImportSchema>;
+  defaultDueDay?: number;
+  settings?: ImportedSettings;
+} {
+  try {
+    return parseImportPayloadUnchecked(input);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ImportPayloadError(formatImportValidationError(error));
+    }
+    throw error;
+  }
 }
