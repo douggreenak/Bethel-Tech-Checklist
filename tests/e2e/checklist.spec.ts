@@ -19,9 +19,35 @@ test.describe("Church Tech Checklist", () => {
   test("import page reports malformed JSON without mislabeling network errors", async ({ page }) => {
     await authenticate(page);
     await page.goto("/import");
+    await expect(page.getByText("Drop your JSON backup here")).toBeVisible();
+    await expect(page.locator("textarea")).toBeHidden();
+    await page.getByText("Or paste JSON instead").click();
     await page.locator("textarea").fill("{not valid json");
     await page.getByRole("button", { name: "Import" }).click();
     await expect(page.locator(".form-message.error")).toContainText("Invalid JSON");
+  });
+
+  test("accepts a JSON backup dropped onto the primary upload area", async ({ page }) => {
+    await authenticate(page);
+    await page.goto("/import");
+    const dataTransfer = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File(
+        ['{"categories":[],"tasks":[],"history":[]}'],
+        "dropped-backup.json",
+        { type: "application/json" }
+      ));
+      return transfer;
+    });
+
+    const dropzone = page.locator(".import-dropzone");
+    await dropzone.dispatchEvent("dragenter", { dataTransfer });
+    await expect(dropzone).toHaveClass(/is-dragging/);
+    await dropzone.dispatchEvent("drop", { dataTransfer });
+
+    await expect(dropzone).not.toHaveClass(/is-dragging/);
+    await expect(page.locator(".import-file-hint")).toContainText("dropped-backup.json");
+    await expect(page.locator("textarea")).toContainText('"categories":[]');
   });
 
   test("reduced motion disables decorative animation", async ({ page }) => {
@@ -376,6 +402,8 @@ test.describe("Church Tech Checklist", () => {
     };
 
     await page.goto("/import");
+    await expect(page.getByText("Drop your JSON backup here")).toBeVisible();
+    await expect(page.getByText("Or paste JSON instead")).toBeVisible();
     await page.locator("#backupFile").setInputFiles({
       name: "church-tech-checklist-backup.json",
       mimeType: "application/json",
@@ -384,6 +412,8 @@ test.describe("Church Tech Checklist", () => {
     await expect(page.locator(".import-file-hint")).toContainText(
       "church-tech-checklist-backup.json"
     );
+    await expect(page.locator(".import-paste")).toHaveAttribute("open", "");
+    await expect(page.locator("textarea")).toContainText("Imported task");
     await page.getByRole("button", { name: "Import" }).click();
     await expect(page.locator(".form-message.success")).toContainText(
       "Imported 2 categories, 1 task, and 1 history record."

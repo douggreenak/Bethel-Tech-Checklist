@@ -186,9 +186,14 @@ a:focus-visible,
     transform: scale(1.06);
   }
 
-  .import-file-label:hover {
+  .import-dropzone:not(.is-dragging):hover {
+    border-color: var(--acc);
+    background-color: color-mix(in srgb, var(--pc) 22%, var(--sf));
+  }
+
+  .import-dropzone-label:hover .import-file-button {
     transform: translateY(-1px);
-    background-color: var(--pc);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .14);
   }
 }
 
@@ -222,6 +227,25 @@ a:focus-visible,
     box-shadow var(--motion-fast) var(--ease-standard);
 }
 
+.import-dropzone {
+  position: relative;
+  min-height: 240px;
+  overflow: hidden;
+  border: 2px dashed var(--line);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--sf) 72%, transparent);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-base) var(--ease-emphasized);
+}
+
+.import-dropzone.is-dragging {
+  border-color: var(--acc);
+  background: color-mix(in srgb, var(--pc) 45%, var(--sf));
+  transform: scale(1.01);
+}
+
 .import-file-input {
   position: absolute;
   width: 1px;
@@ -235,31 +259,84 @@ a:focus-visible,
   border: 0;
 }
 
-.import-file-input:focus-visible + .import-file-hint {
-  outline: 3px solid var(--acc);
-  outline-offset: 3px;
-  border-radius: 4px;
+.import-dropzone-label {
+  display: flex;
+  min-height: 236px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  padding: 24px;
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
 }
 
-.import-file-label {
+.import-file-input:focus-visible + .import-dropzone-label {
+  outline: 3px solid var(--acc);
+  outline-offset: -6px;
+  border-radius: 18px;
+}
+
+.import-dropzone-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--pc);
+  color: var(--opc);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.import-dropzone-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.import-dropzone-or,
+.import-dropzone-hint {
+  color: var(--mute);
+  font-size: .9rem;
+}
+
+.import-file-button {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
-  min-height: 48px;
-  padding: 0 20px;
+  padding: 0 18px;
   border-radius: 999px;
-  background: var(--sch);
-  color: var(--ink);
-  font-weight: 500;
-  cursor: pointer;
+  background: var(--acc);
+  color: var(--on);
+  font-weight: 600;
   transition:
     transform var(--motion-base) var(--ease-emphasized),
-    background-color var(--motion-fast) var(--ease-standard);
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .import-file-hint {
-  margin: 8px 0 12px;
+  margin: 10px 0 0;
   color: var(--mute);
   font-size: .85rem;
+}
+
+.import-paste {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.import-paste summary {
+  width: fit-content;
+  padding: 14px 0 10px;
+  color: var(--acc);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.import-paste .import-textarea {
+  margin-top: 6px;
 }
 
 .page-title-row {

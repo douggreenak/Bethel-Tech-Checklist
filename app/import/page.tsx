@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { applyTheme, THEME_STORAGE_KEY, ThemeConfig } from "@/lib/theme";
 import { parseImportText } from "@/lib/import";
@@ -10,13 +10,15 @@ const MAX_IMPORT_FILE_BYTES = 4 * 1024 * 1024;
 export default function ImportPage() {
   const [jsonText, setJsonText] = useState("");
   const [fileName, setFileName] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const pasteDetailsRef = useRef<HTMLDetailsElement>(null);
 
   const handleImport = async () => {
     if (!jsonText.trim()) {
-      setError("Please paste your JSON export first.");
+      setError("Choose a JSON backup file or paste your JSON export first.");
       return;
     }
 
@@ -66,20 +68,19 @@ export default function ImportPage() {
     }
   };
 
-  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const loadFile = async (file?: File, input?: HTMLInputElement) => {
     if (!file) return;
 
     setError(null);
     setResult(null);
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setError("Backup file is too large. Choose a JSON file smaller than 4 MB.");
-      event.target.value = "";
+      if (input) input.value = "";
       return;
     }
     if (!file.name.toLowerCase().endsWith(".json") && file.type !== "application/json") {
       setError("Choose a .json backup file.");
-      event.target.value = "";
+      if (input) input.value = "";
       return;
     }
 
@@ -88,11 +89,16 @@ export default function ImportPage() {
       parseImportText(text);
       setJsonText(text.replace(/^\uFEFF/, ""));
       setFileName(file.name);
+      if (pasteDetailsRef.current) pasteDetailsRef.current.open = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read this backup file.");
       setFileName("");
-      event.target.value = "";
+      if (input) input.value = "";
     }
+  };
+
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    await loadFile(event.target.files?.[0], event.target);
   };
 
   return (
@@ -113,29 +119,55 @@ export default function ImportPage() {
       </p>
 
       <div className="addcard">
-        <label className="import-file-label" htmlFor="backupFile">
-          Choose JSON backup
-        </label>
-        <input
-          id="backupFile"
-          className="import-file-input"
-          type="file"
-          accept=".json,application/json"
-          onChange={handleFileSelected}
-        />
-        <p className="import-file-hint" aria-live="polite">
-          {fileName ? `Selected: ${fileName}. Review the JSON below, then import.` : "You can also paste JSON below. Maximum file size: 4 MB."}
-        </p>
-        <textarea
-          rows={12}
-          value={jsonText}
-          onChange={(e) => {
-            setJsonText(e.target.value);
-            setFileName("");
+        <div
+          className={`import-dropzone${isDragging ? " is-dragging" : ""}`}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
           }}
-          placeholder='{"format":"church-tech-checklist-backup","formatVersion":1,"data":{...},"settings":{...}}'
-          className="import-textarea"
-        />
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setIsDragging(false);
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setIsDragging(false);
+            void loadFile(event.dataTransfer.files[0]);
+          }}
+        >
+          <input
+            id="backupFile"
+            className="import-file-input"
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileSelected}
+          />
+          <label className="import-dropzone-label" htmlFor="backupFile">
+            <span className="import-dropzone-icon" aria-hidden="true">↑</span>
+            <span className="import-dropzone-title">Drop your JSON backup here</span>
+            <span className="import-dropzone-or">or</span>
+            <span className="import-file-button">Choose a file</span>
+            <span className="import-dropzone-hint">JSON backup · up to 4 MB</span>
+          </label>
+        </div>
+        <p className="import-file-hint" aria-live="polite">
+          {fileName ? `Selected: ${fileName}. Review the JSON below, then import.` : ""}
+        </p>
+        <details className="import-paste" ref={pasteDetailsRef}>
+          <summary>{fileName ? "Review or edit JSON" : "Or paste JSON instead"}</summary>
+          <textarea
+            rows={12}
+            value={jsonText}
+            onChange={(e) => {
+              setJsonText(e.target.value);
+              setFileName("");
+            }}
+            placeholder='{"format":"church-tech-checklist-backup","formatVersion":1,"data":{...},"settings":{...}}'
+            className="import-textarea"
+          />
+        </details>
 
         {error && (
           <p className="form-message error" role="alert">
