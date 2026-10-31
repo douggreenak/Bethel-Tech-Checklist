@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { appState, categories, tasks, weekHistory } from "@/lib/schema";
 import { asc, eq } from "drizzle-orm";
 import { executeRollWeek } from "@/lib/roll";
+import { weekKey } from "@/lib/time";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,6 +15,8 @@ export async function GET(req: NextRequest) {
     }
 
     const tz = process.env.TEAM_TIMEZONE || "America/Chicago";
+    const now = Date.now();
+    const targetWeek = weekKey(now, tz);
 
     let stateList = await db.select().from(appState).where(eq(appState.id, 1));
     if (stateList.length === 0) {
@@ -22,15 +25,25 @@ export async function GET(req: NextRequest) {
     }
     const state = stateList[0];
 
-    const allCategories = await db.select().from(categories).orderBy(asc(categories.sortOrder));
-    const allTasks = await db.select().from(tasks).orderBy(asc(tasks.sortOrder));
+    if (state.currentWeek === targetWeek) {
+      return NextResponse.json({
+        success: true,
+        rolled: false,
+        currentWeek: targetWeek,
+      });
+    }
+
+    const [allCategories, allTasks] = await Promise.all([
+      db.select().from(categories).orderBy(asc(categories.sortOrder)),
+      db.select().from(tasks).orderBy(asc(tasks.sortOrder)),
+    ]);
 
     const rollResult = executeRollWeek({
       currentWeek: state.currentWeek,
       startedAt: state.startedAt,
       tasks: allTasks,
       categories: allCategories,
-      now: Date.now(),
+      now,
       timeZone: tz,
     });
 
