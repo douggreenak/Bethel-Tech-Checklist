@@ -15,12 +15,20 @@ export default function ImportPage() {
       return;
     }
 
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(jsonText.trim());
-      setLoading(true);
-      setError(null);
+      parsed = JSON.parse(jsonText.trim());
+    } catch (err) {
+      setError(`Invalid JSON: ${err instanceof Error ? err.message : "Unable to parse input"}`);
       setResult(null);
+      return;
+    }
 
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
       const res = await fetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,8 +41,8 @@ export default function ImportPage() {
       } else {
         setResult(data.message || "Import successful!");
       }
-    } catch (err: any) {
-      setError(`Invalid JSON: ${err.message}`);
+    } catch {
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -42,7 +50,7 @@ export default function ImportPage() {
 
   return (
     <main>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div className="page-title-row">
         <h1>Import Checklist Data</h1>
         <Link href="/" className="text">
           &larr; Back to Checklist
@@ -61,32 +69,22 @@ export default function ImportPage() {
           value={jsonText}
           onChange={(e) => setJsonText(e.target.value)}
           placeholder='{"categories":[...],"tasks":[...],"history":[...],"appState":{...}}'
-          style={{
-            width: "100%",
-            fontFamily: "monospace",
-            fontSize: "0.85rem",
-            padding: 12,
-            borderRadius: 16,
-            border: "1px solid var(--out)",
-            background: "var(--sf)",
-            color: "var(--ink)",
-            resize: "vertical",
-          }}
+          className="import-textarea"
         />
 
         {error && (
-          <p style={{ color: "var(--bad)", marginTop: 12, fontWeight: 500 }}>
+          <p className="form-message error" role="alert">
             {error}
           </p>
         )}
 
         {result && (
-          <p style={{ color: "var(--ok)", marginTop: 12, fontWeight: 500 }}>
+          <p className="form-message success" role="status">
             {result}
           </p>
         )}
 
-        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 16 }}>
+        <div className="form-actions">
           <button
             type="button"
             className="btn"

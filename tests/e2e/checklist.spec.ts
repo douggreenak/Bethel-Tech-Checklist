@@ -9,12 +9,36 @@ async function authenticate(page: Page) {
   await page.fill('input[type="password"]', PASSCODE);
   await page.click('button[type="submit"]');
   // Wait until redirected to the main page
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.locator("h1")).toHaveText("Church tech checklist", {
     timeout: 20000,
   });
 }
 
 test.describe("Church Tech Checklist", () => {
+  test("import page reports malformed JSON without mislabeling network errors", async ({ page }) => {
+    await authenticate(page);
+    await page.goto("/import");
+    await page.locator("textarea").fill("{not valid json");
+    await page.getByRole("button", { name: "Import" }).click();
+    await expect(page.locator(".form-message.error")).toContainText("Invalid JSON");
+  });
+
+  test("reduced motion disables decorative animation", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/login");
+    const motion = await page.evaluate(() => {
+      const button = document.createElement("button");
+      button.className = "btn shake";
+      document.body.append(button);
+      const style = getComputedStyle(button);
+      return { transitionDuration: style.transitionDuration, animationName: style.animationName };
+    });
+
+    expect(motion.transitionDuration).toBe("0s");
+    expect(motion.animationName).toBe("none");
+  });
+
   test("login page works with passcode and rejects invalid passcode", async ({ page }) => {
     await page.goto("/login");
 
@@ -26,6 +50,7 @@ test.describe("Church Tech Checklist", () => {
     // Enter correct passcode
     await page.fill('input[type="password"]', PASSCODE);
     await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("h1")).toHaveText("Church tech checklist", { timeout: 15000 });
   });
 
@@ -53,13 +78,21 @@ test.describe("Church Tech Checklist", () => {
     const badge = catEl.locator(".cnt");
     await expect(badge).toHaveText("0/1");
 
+    const progressBefore = await page.locator("#txt").textContent();
+    const progressMatch = progressBefore?.match(/^(\d+) of (\d+) done$/);
+    expect(progressMatch).not.toBeNull();
+
     const checkbox = taskRow.locator('input[type="checkbox"]');
     await checkbox.check();
 
     await expect(taskRow).toHaveClass(/done/);
     await expect(badge).toContainText("1/1");
     await expect(badge).toHaveClass(/all/);
-    await expect(page.locator("#txt")).toHaveText("✓ All done!");
+    const completed = Number(progressMatch![1]) + 1;
+    const total = Number(progressMatch![2]);
+    await expect(page.locator("#txt")).toHaveText(
+      completed === total ? "✓ All done!" : `${completed} of ${total} done`
+    );
   });
 
   test("checking a task does not move any other row (no layout shift)", async ({ page }) => {
@@ -79,6 +112,7 @@ test.describe("Church Tech Checklist", () => {
     const rowB = page.locator(`.row:has-text("${taskBName}")`);
     await expect(rowA).toBeVisible({ timeout: 10000 });
     await expect(rowB).toBeVisible({ timeout: 10000 });
+    await rowA.scrollIntoViewIfNeeded();
 
     const boxBefore = await rowB.boundingBox();
     expect(boxBefore).not.toBeNull();
@@ -158,6 +192,7 @@ test.describe("Church Tech Checklist", () => {
 
   test("past-due banner, start new week grace, and renew due times", async ({ page }) => {
     await authenticate(page);
+    await page.request.post("/api/week/renew");
 
     // Create a dedicated category with dueDay=1 (Monday) and dueTime=00:01
     // Monday is always in the past by Tuesday–Saturday, guaranteeing overdue state.

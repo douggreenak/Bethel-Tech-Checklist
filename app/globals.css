@@ -1,4 +1,8 @@
 :root {
+  --motion-fast: 160ms;
+  --motion-base: 220ms;
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(.2, .8, .2, 1);
   --bg: #E3E7ED;
   --sf: #F2F4F7;
   --sc: #D5DAE2;
@@ -21,6 +25,7 @@
   --inv: #2F3033;
   --oinv: #F1F0F4;
   --invp: #ADC6FF;
+  color-scheme: light;
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -28,6 +33,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #111318;
     --sf: #23272C;
     --sc: #1A1D21;
@@ -54,6 +60,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #111318;
   --sf: #23272C;
   --sc: #1A1D21;
@@ -149,9 +156,130 @@ button {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-a:focus-visible {
+a:focus-visible,
+.duep:focus-visible {
   outline: 3px solid var(--acc);
   outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .btn:hover,
+  .tonal:hover,
+  .ghost:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .14);
+  }
+
+  .text:hover,
+  .pen:hover,
+  .toast button:hover,
+  .ddi:hover {
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .duep:hover {
+    background-color: var(--sch);
+    transform: translateY(-1px);
+  }
+
+  .sb:hover {
+    transform: scale(1.06);
+  }
+}
+
+.editin:focus,
+.timein:focus,
+.add input:focus,
+.add select:focus,
+.import-textarea:focus {
+  outline: 0;
+  border-color: var(--acc);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 24%, transparent);
+}
+
+.duep:focus-visible {
+  border-color: var(--acc);
+}
+
+.import-textarea {
+  display: block;
+  width: 100%;
+  min-height: 240px;
+  padding: 14px 16px;
+  resize: vertical;
+  border: 1px solid var(--out);
+  border-radius: 16px;
+  background: var(--sf);
+  color: var(--ink);
+  font: .9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-title-row h1 {
+  min-width: 0;
+}
+
+.auth-page {
+  min-height: 80vh;
+  display: grid;
+  place-items: center;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+  padding: 28px;
+}
+
+.auth-card h1 {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+}
+
+.auth-card .sub {
+  margin: 0 0 20px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-form .editin {
+  flex-basis: auto;
+  width: 100%;
+  margin: 0;
+}
+
+.form-message {
+  margin: 2px 4px;
+  font-size: .9rem;
+  font-weight: 500;
+}
+
+.form-message.error {
+  color: var(--bad);
+}
+
+.form-message.success {
+  color: var(--ok);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .ms {
@@ -186,7 +314,19 @@ a:focus-visible {
   font-weight: 500;
   font-size: .95rem;
   letter-spacing: .01em;
-  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), background .2s;
+  transition:
+    transform var(--motion-base) var(--ease-emphasized),
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.btn:disabled,
+.tonal:disabled,
+.ghost:disabled,
+.text:disabled {
+  cursor: not-allowed;
+  opacity: .58;
 }
 
 .btn {
@@ -298,7 +438,7 @@ a:focus-visible {
   width: 0;
   border-radius: 999px;
   background: var(--acc);
-  transition: width .45s cubic-bezier(.2, 0, 0, 1);
+  transition: width 550ms var(--ease-emphasized);
 }
 
 .cat {
@@ -306,7 +446,7 @@ a:focus-visible {
   border-radius: 28px;
   margin: 16px 0;
   outline: 3px solid transparent;
-  transition: outline-color .2s;
+  transition: outline-color var(--motion-fast) var(--ease-standard);
 }
 
 .cat.over {
@@ -402,7 +542,9 @@ a:focus-visible {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
-  transition: opacity .2s;
+  transition:
+    opacity var(--motion-base) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
 }
 
 .row.done {
@@ -463,13 +605,17 @@ input[type=checkbox] {
   background: transparent;
   display: grid;
   place-content: center;
-  transition: background .2s, border-color .2s;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-base) var(--ease-emphasized);
   cursor: pointer;
 }
 
 input[type=checkbox]:checked {
   background: var(--acc);
   border-color: var(--acc);
+  transform: scale(1.04);
 }
 
 input[type=checkbox]:checked::after {
@@ -479,6 +625,7 @@ input[type=checkbox]:checked::after {
   border: solid var(--on);
   border-width: 0 4px 4px 0;
   transform: rotate(45deg) translate(-1px, -1px);
+  animation: check-pop var(--motion-base) var(--ease-emphasized) both;
 }
 
 .txt {
@@ -525,6 +672,11 @@ input:checked + .txt .nm {
   font-weight: 500;
   color: var(--mute);
   cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-emphasized);
 }
 
 .duep:empty {
@@ -549,7 +701,10 @@ input:checked + .txt .nm {
   height: 48px;
   border-radius: 50%;
   color: var(--mute);
-  transition: background .2s;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-base) var(--ease-emphasized);
 }
 
 .pen:active {
@@ -558,6 +713,7 @@ input:checked + .txt .nm {
 
 .pen.star.on {
   color: #E8A200;
+  animation: star-pop 260ms var(--ease-emphasized);
 }
 
 .pen.armed {
@@ -588,15 +744,10 @@ input:checked + .txt .nm {
   border-radius: 16px;
   background: var(--sf);
   color: var(--ink);
-}
-
-.editin:focus,
-.timein:focus,
-.add input:focus,
-.add select:focus {
-  outline: 0;
-  border: 2px solid var(--acc);
-  padding: 0 15px;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .editin {
@@ -742,7 +893,10 @@ input:checked + .txt .nm {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  transition: transform .25s cubic-bezier(.2, 0, 0, 1), opacity .2s, visibility .2s;
+  transition:
+    transform var(--motion-base) var(--ease-emphasized),
+    opacity var(--motion-base) var(--ease-standard),
+    visibility var(--motion-base) var(--ease-standard);
 }
 
 .toast.on {
@@ -772,6 +926,7 @@ input:checked + .txt .nm {
   justify-content: center;
   padding: 20px;
   z-index: 80;
+  animation: backdrop-in var(--motion-base) var(--ease-standard) both;
 }
 
 .modal[hidden] {
@@ -784,6 +939,8 @@ input:checked + .txt .nm {
   padding: 24px;
   max-width: 420px;
   width: 100%;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .24);
+  animation: dialog-in 280ms var(--ease-emphasized) both;
 }
 
 .mbox h2 {
@@ -825,7 +982,9 @@ input:checked + .txt .nm {
   color: var(--opc);
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
-  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1);
+  transition:
+    transform var(--motion-base) var(--ease-emphasized),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .fab:active {
@@ -950,7 +1109,7 @@ input:checked + .txt .nm {
 
 .ddb .ms {
   color: var(--mute);
-  transition: transform .2s;
+  transition: transform var(--motion-base) var(--ease-emphasized);
 }
 
 .ddb[aria-expanded="true"] .ms {
@@ -1044,7 +1203,9 @@ input:checked + .txt .nm {
   border-radius: 16px;
   border: 2px solid var(--out);
   background: var(--sch);
-  transition: background .2s, border-color .2s;
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard);
 }
 
 .swt[hidden] {
@@ -1061,7 +1222,12 @@ input:checked + .txt .nm {
   margin-top: -8px;
   border-radius: 50%;
   background: var(--out);
-  transition: left .2s, width .2s, height .2s, margin .2s, background .2s;
+  transition:
+    left var(--motion-base) var(--ease-emphasized),
+    width var(--motion-base) var(--ease-emphasized),
+    height var(--motion-base) var(--ease-emphasized),
+    margin var(--motion-base) var(--ease-emphasized),
+    background-color var(--motion-base) var(--ease-standard);
 }
 
 .swt[aria-checked="true"] {
@@ -1087,6 +1253,34 @@ input:checked + .txt .nm {
   75% { transform: translateX(6px); }
 }
 
+@keyframes check-pop {
+  0% { transform: rotate(45deg) translate(-1px, -1px) scale(.5); }
+  65% { transform: rotate(45deg) translate(-1px, -1px) scale(1.15); }
+  100% { transform: rotate(45deg) translate(-1px, -1px) scale(1); }
+}
+
+@keyframes star-pop {
+  0% { transform: scale(.75) rotate(-12deg); }
+  65% { transform: scale(1.18) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (max-width: 640px) {
   main {
     padding: 12px max(12px, env(safe-area-inset-right)) 130px max(12px, env(safe-area-inset-left));
@@ -1097,18 +1291,42 @@ input:checked + .txt .nm {
   .more {
     display: grid;
   }
-  .acts {
-    display: none;
+  .acts,
+  html.nw .acts {
+    display: flex;
     order: 5;
     flex: 0 0 100%;
     justify-content: space-around;
-    border-top: 1px solid var(--line);
+    max-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    border-top: 1px solid transparent;
+    margin-top: 0;
+    pointer-events: none;
+    transition:
+      max-height 260ms var(--ease-standard),
+      opacity var(--motion-base) var(--ease-standard),
+      transform var(--motion-base) var(--ease-emphasized),
+      margin-top var(--motion-base) var(--ease-standard),
+      border-color var(--motion-base) var(--ease-standard),
+      visibility var(--motion-base) var(--ease-standard);
+  }
+
+  .cathead.open .acts,
+  html.nw .cathead.open .acts {
+    max-height: 88px;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    border-top-color: var(--line);
     margin-top: 4px;
+    pointer-events: auto;
   }
-  .cathead.open .acts {
-    display: flex;
-  }
-  .acts .pen {
+
+  .acts .pen,
+  html.nw .acts .pen {
     flex: 1;
     width: auto;
     height: auto;
@@ -1122,10 +1340,13 @@ input:checked + .txt .nm {
     font-size: .75rem;
     padding: 8px 0;
   }
-  .acts .pen::after {
+  .acts .pen::after,
+  html.nw .acts .pen::after {
     content: attr(data-l);
   }
-  .acts .pen.armed::after {
+
+  .acts .pen.armed::after,
+  html.nw .acts .pen.armed::after {
     content: "";
   }
   .timein {
@@ -1298,15 +1519,34 @@ html.nw .more {
   display: grid;
 }
 html.nw .acts {
-  display: none;
+  display: flex;
   order: 5;
   flex: 0 0 100%;
   justify-content: space-around;
-  border-top: 1px solid var(--line);
-  margin-top: 4px;
+  max-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  border-top: 1px solid transparent;
+  margin-top: 0;
+  pointer-events: none;
+  transition:
+    max-height 260ms var(--ease-standard),
+    opacity var(--motion-base) var(--ease-standard),
+    transform var(--motion-base) var(--ease-emphasized),
+    margin-top var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    visibility var(--motion-base) var(--ease-standard);
 }
 html.nw .cathead.open .acts {
-  display: flex;
+  max-height: 88px;
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  border-top-color: var(--line);
+  margin-top: 4px;
+  pointer-events: auto;
 }
 html.nw .acts .pen {
   flex: 1;
