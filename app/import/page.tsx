@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { applyTheme, THEME_STORAGE_KEY, ThemeConfig } from "@/lib/theme";
 
 export default function ImportPage() {
   const [jsonText, setJsonText] = useState("");
@@ -39,7 +40,20 @@ export default function ImportPage() {
       if (!res.ok) {
         setError(data.error || "Import failed");
       } else {
-        setResult(data.message || "Import successful!");
+        let settingsWarning = "";
+        if (data.settings) {
+          try {
+            const theme = data.settings.theme as ThemeConfig;
+            localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(theme));
+            applyTheme(theme);
+
+            const collapsed = data.settings.collapsedCategories as Record<string, boolean>;
+            localStorage.setItem("church-tech-collapsed-v1", JSON.stringify(collapsed));
+          } catch {
+            settingsWarning = " Records were imported, but device settings could not be saved in this browser.";
+          }
+        }
+        setResult(`${data.message || "Import successful!"}${settingsWarning}`);
       }
     } catch {
       setError("Network error. Please check your connection and try again.");
@@ -58,9 +72,10 @@ export default function ImportPage() {
       </div>
 
       <p className="sub">
-        Paste your JSON export from the single-file checklist below. This importer converts
-        timestamps, categories, tasks, and past week histories into the Neon Postgres database.
-        It uses safe upserts, so re-running it will not duplicate your data.
+        Paste a Church Tech Checklist backup JSON or a legacy export. Categories, tasks,
+        history, and the current week are imported to the database; device theme and
+        collapsed-category settings are restored in this browser. Re-importing updates
+        matching IDs instead of duplicating them.
       </p>
 
       <div className="addcard">
@@ -68,7 +83,7 @@ export default function ImportPage() {
           rows={12}
           value={jsonText}
           onChange={(e) => setJsonText(e.target.value)}
-          placeholder='{"categories":[...],"tasks":[...],"history":[...],"appState":{...}}'
+          placeholder='{"format":"church-tech-checklist-backup","formatVersion":1,"data":{...},"settings":{...}}'
           className="import-textarea"
         />
 

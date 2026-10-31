@@ -3,63 +3,36 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { appState, categories, tasks, weekHistory } from "@/lib/schema";
 import { eq } from "drizzle-orm";
-
-const ImportSchema = z.object({
-  categories: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      order: z.number().optional().default(0),
-      due: z.string().optional().default(""),
-      dueDay: z.number().int().min(0).max(6).nullable().optional(),
-    })
-  ).optional().default([]),
-  tasks: z.array(
-    z.object({
-      id: z.string(),
-      text: z.string(),
-      done: z.boolean().optional().default(false),
-      cat: z.string().optional().default("general"),
-      order: z.number().optional().default(0),
-      at: z.number().nullable().optional(),
-      due: z.string().optional().default(""),
-      star: z.boolean().optional().default(false),
-    })
-  ).optional().default([]),
-  history: z.array(
-    z.object({
-      week: z.string(),
-      done: z.number(),
-      total: z.number(),
-      at: z.number().optional(),
-      detail: z.array(
-        z.object({
-          n: z.string(),
-          d: z.number(),
-          t: z.number(),
-        })
-      ).optional().default([]),
-    })
-  ).optional().default([]),
-  appState: z.object({
-    week: z.string().optional(),
-    startedAt: z.number().nullable().optional(),
-  }).optional(),
-});
+import { parseImportPayload } from "@/lib/import";
 
 export async function POST(req: NextRequest) {
   try {
     let body: unknown;
-    try { body = await req.json(); } catch { body = {}; }
-    const parsed = ImportSchema.safeParse(body);
-    if (!parsed.success) {
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 });
+    }
+    let imported: ReturnType<typeof parseImportPayload>;
+    try {
+      imported = parseImportPayload(body);
+    } catch (err) {
+      if (!(err instanceof z.ZodError)) throw err;
       return NextResponse.json(
-        { error: parsed.error.issues[0]?.message || "Invalid import JSON format" },
+        { error: err.issues[0]?.message || "Invalid import JSON format" },
         { status: 400 }
       );
     }
 
-    const { categories: importCats, tasks: importTasks, history: importHistory, appState: importState } = parsed.data;
+    const { categories: importCats, tasks: importTasks, history: importHistory, appState: importState } = imported.data;
+    const categoryIds = new Set(["general", ...importCats.map(({ id }) => id)]);
+    const missingCategoryTask = importTasks.find((task) => !categoryIds.has(task.cat || "general"));
+    if (missingCategoryTask) {
+      return NextResponse.json(
+        { error: `Task "${missingCategoryTask.text}" references missing category "${missingCategoryTask.cat}"` },
+        { status: 400 }
+      );
+    }
 
     // Ensure general category exists first
     await db.insert(categories).values({
@@ -79,7 +52,7 @@ export async function POST(req: NextRequest) {
           name: c.name,
           sortOrder: c.order,
           dueTime: c.due || "",
-          dueDay: typeof c.dueDay === "number" ? c.dueDay : null,
+          dueDay: c.dueDay ?? imported.defaultDueDay ?? null,
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
@@ -88,7 +61,7 @@ export async function POST(req: NextRequest) {
             name: c.name,
             sortOrder: c.order,
             dueTime: c.due || "",
-            dueDay: typeof c.dueDay === "number" ? c.dueDay : null,
+            dueDay: c.dueDay ?? imported.defaultDueDay ?? null,
             updatedAt: new Date(),
           },
         });
@@ -97,14 +70,15 @@ export async function POST(req: NextRequest) {
 
     let taskCount = 0;
     for (const t of importTasks) {
-      const checkedAt = t.at ? new Date(t.at) : null;
+      const checkedAt = t.at != null && t.at !== 0 ? new Date(t.at) : null;
+      const categoryId = t.cat || "general";
       await db
         .insert(tasks)
         .values({
           id: t.id,
           text: t.text,
           done: Boolean(t.done),
-          categoryId: t.cat || "general",
+          categoryId,
           sortOrder: t.order,
           checkedAt,
           dueTime: t.due || "",
@@ -116,7 +90,7 @@ export async function POST(req: NextRequest) {
           set: {
             text: t.text,
             done: Boolean(t.done),
-            categoryId: t.cat || "general",
+            categoryId,
             sortOrder: t.order,
             checkedAt,
             dueTime: t.due || "",
@@ -129,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     let histCount = 0;
     for (const h of importHistory) {
-      const savedAt = h.at ? new Date(h.at) : new Date();
+      const savedAt = h.at != null ? new Date(h.at) : new Date();
       await db
         .insert(weekHistory)
         .values({
@@ -157,20 +131,21 @@ export async function POST(req: NextRequest) {
         .values({
           id: 1,
           currentWeek: importState.week,
-          startedAt: importState.startedAt ? new Date(importState.startedAt) : null,
+          startedAt: importState.startedAt != null ? new Date(importState.startedAt) : null,
         })
         .onConflictDoUpdate({
           target: appState.id,
           set: {
             currentWeek: importState.week,
-            startedAt: importState.startedAt ? new Date(importState.startedAt) : null,
+            startedAt: importState.startedAt != null ? new Date(importState.startedAt) : null,
           },
         });
     }
 
     return NextResponse.json({
       success: true,
-      message: `Imported ${catCount} categories, ${taskCount} tasks, and ${histCount} history records.`,
+      message: `Imported ${catCount} ${catCount === 1 ? "category" : "categories"}, ${taskCount} ${taskCount === 1 ? "task" : "tasks"}, and ${histCount} ${histCount === 1 ? "history record" : "history records"}.`,
+      settings: imported.settings,
       counts: {
         categories: catCount,
         tasks: taskCount,

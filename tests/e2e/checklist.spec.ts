@@ -328,4 +328,75 @@ test.describe("Church Tech Checklist", () => {
     const reloadedBeta = page.locator(`section[data-cat]:has-text("${catBetaName}")`);
     await expect(reloadedBeta.locator(`.row:has-text("${itemName}")`)).toBeVisible({ timeout: 10000 });
   });
+
+  test("imports a versioned Church Tech Checklist backup and restores supported settings", async ({ page }) => {
+    await authenticate(page);
+
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const categoryId = `backup-${suffix}`;
+    const taskId = `backup-task-${suffix}`;
+    const backup = {
+      format: "church-tech-checklist-backup",
+      formatVersion: 1,
+      exportedAt: "2026-10-31T21:59:25.348Z",
+      source: { app: "Church Tech Checklist", storage: "account" },
+      counts: { categories: 2, tasks: 1, history: 1 },
+      fieldNotes: { "tasks.cat": "category id" },
+      data: {
+        categories: [
+          { id: "general", name: "Auditorium", order: 10, due: "07:50", dueDay: null, builtIn: true },
+          { id: categoryId, name: "Backup category", order: 20, due: "20:00", dueDay: null },
+        ],
+        tasks: [{
+          id: taskId,
+          text: "Imported task",
+          done: true,
+          cat: categoryId,
+          order: 11,
+          at: 1793333679073,
+          due: "09:00",
+          star: true,
+        }],
+        history: [{
+          week: "2026-10-19",
+          done: 1,
+          total: 1,
+          at: 1793333398246,
+          detail: [{ n: "Backup category", d: 1, t: 1 }],
+        }],
+        appState: { week: "2026-10-26", startedAt: 1793333398247 },
+      },
+      settings: {
+        shared: { defaultDueDay: 4 },
+        device: {
+          theme: { acc: 1 },
+          collapsedCategories: { [categoryId]: true },
+        },
+      },
+    };
+
+    await page.goto("/import");
+    await page.locator("textarea").fill(JSON.stringify(backup));
+    await page.getByRole("button", { name: "Import" }).click();
+    await expect(page.locator(".form-message.success")).toContainText(
+      "Imported 2 categories, 1 task, and 1 history record."
+    );
+
+    const importedState = await page.request.get("/api/state").then((response) => response.json());
+    expect(importedState.categories.find((category: { id: string }) => category.id === categoryId).dueDay).toBe(4);
+    expect(importedState.tasks.find((task: { id: string }) => task.id === taskId)).toMatchObject({
+      done: true,
+      categoryId,
+      dueTime: "09:00",
+      starred: true,
+    });
+    expect(importedState.history.some((entry: { week: string }) => entry.week === "2026-10-19")).toBe(true);
+    expect(importedState.appState).toMatchObject({ currentWeek: "2026-10-26" });
+    await expect.poll(() =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("church-tech-theme") || "{}"))
+    ).toEqual({ acc: 1 });
+    await expect.poll(() =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("church-tech-collapsed-v1") || "{}"))
+    ).toEqual({ [categoryId]: true });
+  });
 });
