@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Icon } from "./Icon";
 import { TaskRow, TaskData } from "./TaskRow";
 import { EditorInline } from "./EditorInline";
 import { formatDueText } from "@/lib/time";
-import { animateCategoryCollapse } from "@/lib/animate";
 
 export interface CategoryData {
   id: string;
@@ -54,19 +53,6 @@ export function Category({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [deleteArmed, setDeleteArmed] = useState(false);
   const armTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const secRef = useRef<HTMLElement>(null);
-
-  const prevCollapsedRef = useRef(isCollapsed);
-
-  useEffect(() => {
-    if (prevCollapsedRef.current !== isCollapsed && secRef.current) {
-      animateCategoryCollapse({
-        sec: secRef.current,
-        collapse: isCollapsed,
-      });
-      prevCollapsedRef.current = isCollapsed;
-    }
-  }, [isCollapsed]);
 
   const handleDeleteClick = () => {
     if (!deleteArmed) {
@@ -106,7 +92,6 @@ export function Category({
 
   return (
     <section
-      ref={secRef}
       className={`cat ${isCollapsed ? "collapsed" : ""}`}
       data-cat={category.id}
     >
@@ -196,23 +181,30 @@ export function Category({
         </div>
       )}
 
-      <div className="catbody" data-cat={category.id}>
-        {sortedTasks.map((t) => (
-          <TaskRow
-            key={t.id}
-            task={t}
-            categoryName={category.name}
-            categoryDueTime={category.dueTime}
-            categoryDueDay={category.dueDay}
-            timezone={timezone}
-            isOverdue={overdueTaskIds.has(t.id)}
-            onToggleDone={(chk) => onToggleTaskDone(t, chk)}
-            onToggleStar={() => onToggleTaskStar(t)}
-            onUpdate={(txt, due) => onUpdateTask(t, txt, due)}
-            onDelete={() => onDeleteTask(t)}
-            onGripPointerDown={onTaskGripPointerDown}
-          />
-        ))}
+      <div
+        className="catbody"
+        data-cat={category.id}
+        inert={isCollapsed}
+        aria-hidden={isCollapsed}
+      >
+        <div className="catbody-inner">
+          {sortedTasks.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              categoryName={category.name}
+              categoryDueTime={category.dueTime}
+              categoryDueDay={category.dueDay}
+              timezone={timezone}
+              isOverdue={overdueTaskIds.has(t.id)}
+              onToggleDone={(chk) => onToggleTaskDone(t, chk)}
+              onToggleStar={() => onToggleTaskStar(t)}
+              onUpdate={(txt, due) => onUpdateTask(t, txt, due)}
+              onDelete={() => onDeleteTask(t)}
+              onGripPointerDown={onTaskGripPointerDown}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );

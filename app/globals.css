@@ -498,10 +498,21 @@ a:focus-visible,
   font-weight: 500;
   font-size: .95rem;
   overflow-wrap: anywhere;
+  transition:
+    opacity 220ms var(--ease-standard),
+    transform 260ms var(--ease-emphasized),
+    visibility 0s;
 }
 
-.ban[hidden] {
-  display: none;
+.ban.soft-hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 220ms var(--ease-standard),
+    transform 260ms var(--ease-emphasized),
+    visibility 0s linear 260ms;
 }
 
 .ban .ms {
@@ -637,15 +648,34 @@ a:focus-visible,
 }
 
 .catbody {
-  padding: 2px 8px 10px;
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 360ms var(--ease-emphasized);
 }
 
-.collapsed .catbody,
+.catbody-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 2px 8px 10px;
+  transition:
+    padding-top 360ms var(--ease-emphasized),
+    padding-bottom 360ms var(--ease-emphasized);
+}
+
+.collapsed .catbody {
+  grid-template-rows: 0fr;
+}
+
+.collapsed .catbody-inner {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .catdrag .catbody {
   display: none;
 }
 
-.catbody:empty::before {
+.catbody-inner:empty::before {
   content: "No tasks yet. Add one below or drag a task here.";
   display: block;
   padding: 12px 16px;
@@ -1001,7 +1031,7 @@ input:checked + .txt .nm {
   position: fixed;
   left: 50%;
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  transform: translate(-50%, 24px);
+  transform: translate(-50%, 18px) scale(.97);
   background: var(--inv);
   color: var(--oinv);
   border-radius: 12px;
@@ -1016,16 +1046,20 @@ input:checked + .txt .nm {
   opacity: 0;
   pointer-events: none;
   transition:
-    transform var(--motion-base) var(--ease-emphasized),
-    opacity var(--motion-base) var(--ease-standard),
-    visibility var(--motion-base) var(--ease-standard);
+    transform 320ms var(--ease-emphasized),
+    opacity 240ms var(--ease-standard),
+    visibility 0s linear 320ms;
 }
 
 .toast.on {
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 0) scale(1);
+  transition:
+    transform 320ms var(--ease-emphasized),
+    opacity 240ms var(--ease-standard),
+    visibility 0s;
 }
 
 .toast button {
@@ -1049,6 +1083,15 @@ input:checked + .txt .nm {
   padding: 20px;
   z-index: 80;
   animation: backdrop-in var(--motion-base) var(--ease-standard) both;
+}
+
+.modal.closing {
+  pointer-events: none;
+  animation: backdrop-out 220ms var(--ease-standard) both;
+}
+
+.modal.closing .mbox {
+  animation: dialog-out 220ms var(--ease-emphasized) both;
 }
 
 .modal[hidden] {
@@ -1392,6 +1435,11 @@ input:checked + .txt .nm {
   to { opacity: 1; }
 }
 
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 @keyframes dialog-in {
   from {
     opacity: 0;
@@ -1400,6 +1448,17 @@ input:checked + .txt .nm {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(.98);
   }
 }
 

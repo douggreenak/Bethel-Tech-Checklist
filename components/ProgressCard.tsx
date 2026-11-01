@@ -36,9 +36,9 @@ export function ProgressCard({
     <div className="bar">
       {hasOverdue ? (
         <div
-          className="ban"
+          className={`ban${isSoftHiddenBanner ? " soft-hidden" : ""}`}
           role="alert"
-          style={{ visibility: isSoftHiddenBanner ? "hidden" : "visible" }}
+          aria-hidden={isSoftHiddenBanner}
         >
           <Icon name="warning" />
           <span className="bt">
