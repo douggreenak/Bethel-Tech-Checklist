@@ -9,12 +9,104 @@ async function authenticate(page: Page) {
   await page.fill('input[type="password"]', PASSCODE);
   await page.click('button[type="submit"]');
   // Wait until redirected to the main page
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.locator("h1")).toHaveText("Church tech checklist", {
     timeout: 20000,
   });
 }
 
 test.describe("Church Tech Checklist", () => {
+  test("import page reports malformed JSON without mislabeling network errors", async ({ page }) => {
+    await authenticate(page);
+    await page.goto("/import");
+    await expect(page.getByText("Drop your JSON backup here")).toBeVisible();
+    await expect(page.locator("textarea")).toBeHidden();
+    await page.getByText("Or paste JSON instead").click();
+    await page.locator("textarea").fill("{not valid json");
+    await page.getByRole("button", { name: "Import" }).click();
+    await expect(page.locator(".form-message.error")).toContainText("Invalid JSON");
+  });
+
+  test("accepts a JSON backup dropped onto the primary upload area", async ({ page }) => {
+    await authenticate(page);
+    await page.goto("/import");
+    const dataTransfer = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File(
+        ['{"categories":[],"tasks":[],"history":[]}'],
+        "dropped-backup.json",
+        { type: "application/json" }
+      ));
+      return transfer;
+    });
+
+    const dropzone = page.locator(".import-dropzone");
+    await dropzone.dispatchEvent("dragenter", { dataTransfer });
+    await expect(dropzone).toHaveClass(/is-dragging/);
+    await dropzone.dispatchEvent("drop", { dataTransfer });
+
+    await expect(dropzone).not.toHaveClass(/is-dragging/);
+    await expect(page.locator(".import-file-hint")).toContainText("dropped-backup.json");
+    await expect(page.locator("textarea")).toContainText('"categories":[]');
+  });
+
+  test("reduced motion disables decorative animation", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/login");
+    const motion = await page.evaluate(() => {
+      const button = document.createElement("button");
+      button.className = "btn shake";
+      document.body.append(button);
+      const body = document.createElement("div");
+      body.className = "catbody";
+      document.body.append(body);
+      const toast = document.createElement("div");
+      toast.className = "toast on";
+      document.body.append(toast);
+      const style = getComputedStyle(button);
+      return {
+        transitionDuration: style.transitionDuration,
+        animationName: style.animationName,
+        categoryTransitionDuration: getComputedStyle(body).transitionDuration,
+        toastTransitionDuration: getComputedStyle(toast).transitionDuration,
+      };
+    });
+
+    expect(motion.transitionDuration).toBe("0s");
+    expect(motion.animationName).toBe("none");
+    expect(motion.categoryTransitionDuration).toBe("0s");
+    expect(motion.toastTransitionDuration).toBe("0s");
+  });
+
+  test("confirmation dialog animates out after cancel", async ({ page }) => {
+    await authenticate(page);
+
+    const categoryName = `Dialog ${Math.random().toString(36).slice(2, 6)}`;
+    await page.fill("#newCat", categoryName);
+    await page.click("#addCatBtn");
+    const category = page.locator(`section[data-cat]:has-text("${categoryName}")`);
+    await expect(category).toBeVisible();
+    const categoryId = await category.getAttribute("data-cat");
+    expect(categoryId).toBeTruthy();
+    await page.selectOption("#catSel", categoryId!);
+    await page.fill("#newTask", "Dialog close animation");
+    await page.click("#addBtn");
+    const task = category.locator('.row:has-text("Dialog close animation")');
+    await expect(task).toBeVisible();
+    await task.locator('input[type="checkbox"]').check();
+
+    await page.click("#reset");
+
+    const modal = page.locator(".modal");
+    await expect(modal).toBeVisible();
+    await expect(modal.locator(".mbox")).toHaveCSS("animation-name", "dialog-in");
+    await modal.getByRole("button", { name: "Cancel" }).click();
+    await expect(modal).toHaveClass(/closing/);
+    await expect(modal).toHaveAttribute("inert", "");
+    await expect(modal).toHaveCSS("animation-name", "backdrop-out");
+    await expect(modal).toHaveCount(0, { timeout: 1000 });
+  });
+
   test("login page works with passcode and rejects invalid passcode", async ({ page }) => {
     await page.goto("/login");
 
@@ -26,6 +118,7 @@ test.describe("Church Tech Checklist", () => {
     // Enter correct passcode
     await page.fill('input[type="password"]', PASSCODE);
     await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("h1")).toHaveText("Church tech checklist", { timeout: 15000 });
   });
 
@@ -53,13 +146,21 @@ test.describe("Church Tech Checklist", () => {
     const badge = catEl.locator(".cnt");
     await expect(badge).toHaveText("0/1");
 
+    const progressBefore = await page.locator("#txt").textContent();
+    const progressMatch = progressBefore?.match(/^(\d+) of (\d+) done$/);
+    expect(progressMatch).not.toBeNull();
+
     const checkbox = taskRow.locator('input[type="checkbox"]');
     await checkbox.check();
 
     await expect(taskRow).toHaveClass(/done/);
     await expect(badge).toContainText("1/1");
     await expect(badge).toHaveClass(/all/);
-    await expect(page.locator("#txt")).toHaveText("✓ All done!");
+    const completed = Number(progressMatch![1]) + 1;
+    const total = Number(progressMatch![2]);
+    await expect(page.locator("#txt")).toHaveText(
+      completed === total ? "✓ All done!" : `${completed} of ${total} done`
+    );
   });
 
   test("checking a task does not move any other row (no layout shift)", async ({ page }) => {
@@ -79,6 +180,7 @@ test.describe("Church Tech Checklist", () => {
     const rowB = page.locator(`.row:has-text("${taskBName}")`);
     await expect(rowA).toBeVisible({ timeout: 10000 });
     await expect(rowB).toBeVisible({ timeout: 10000 });
+    await rowA.scrollIntoViewIfNeeded();
 
     const boxBefore = await rowB.boundingBox();
     expect(boxBefore).not.toBeNull();
@@ -111,15 +213,30 @@ test.describe("Church Tech Checklist", () => {
     const taskRow = catEl.locator('.row:has-text("Solo Task")');
     await expect(taskRow).toBeVisible({ timeout: 10000 });
     await expect(catEl).not.toHaveClass(/collapsed/);
+    const body = catEl.locator(".catbody");
+    await body.evaluate((element) => {
+      element.dataset.collapseTransitionSeen = "false";
+      element.addEventListener("transitionrun", (event) => {
+        if ("propertyName" in event && event.propertyName === "grid-template-rows") {
+          element.dataset.collapseTransitionSeen = "true";
+        }
+      });
+    });
 
     await taskRow.locator('input[type="checkbox"]').check();
 
+    await expect(body).toHaveAttribute("data-collapse-transition-seen", "true");
+    await expect.poll(() =>
+      body.evaluate((element) => getComputedStyle(element).transitionProperty)
+    ).toContain("grid-template-rows");
     await page.waitForTimeout(1200);
     await expect(catEl).toHaveClass(/collapsed/);
+    await expect(body).toHaveAttribute("inert", "");
 
     await catEl.locator(".tog").click();
     await page.waitForTimeout(600);
     await expect(catEl).not.toHaveClass(/collapsed/);
+    await expect(body).not.toHaveAttribute("inert", "");
 
     await taskRow.locator('input[type="checkbox"]').uncheck();
     await page.waitForTimeout(400);
@@ -145,19 +262,40 @@ test.describe("Church Tech Checklist", () => {
     await expect(modal).toBeVisible({ timeout: 8000 });
     await expect(modal.locator("h2")).toHaveText("Start a new week?");
 
+    const toast = page.locator(".toast");
+    await toast.evaluate((element) => {
+      element.dataset.enterTransitionSeen = "false";
+      element.addEventListener("transitionrun", (event) => {
+        if ("propertyName" in event && event.propertyName === "transform") {
+          element.dataset.enterTransitionSeen = "true";
+        }
+      });
+    });
     await modal.locator("#mYes, .mbtn .btn").click();
 
     await expect(taskRow.locator('input[type="checkbox"]')).not.toBeChecked({ timeout: 10000 });
 
-    const toast = page.locator(".toast.on");
-    await expect(toast).toContainText("New week started. Results saved.", { timeout: 10000 });
+    const activeToast = page.locator(".toast.on");
+    await expect(activeToast).toContainText("New week started. Results saved.", { timeout: 10000 });
+    await expect(toast).toHaveAttribute("data-enter-transition-seen", "true");
+    const toastTransitions = await activeToast.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { properties: style.transitionProperty, durations: style.transitionDuration };
+    });
+    expect(toastTransitions.properties).toContain("transform");
+    expect(toastTransitions.properties).toContain("opacity");
+    expect(toastTransitions.durations).toContain("0.32s");
 
-    await toast.locator("button:has-text('Undo')").click();
+    await activeToast.locator("button:has-text('Undo')").click();
     await expect(taskRow.locator('input[type="checkbox"]')).toBeChecked({ timeout: 10000 });
+    await expect.poll(() => page.locator(".toast").evaluate((element) => getComputedStyle(element).visibility), {
+      timeout: 1000,
+    }).toBe("hidden");
   });
 
   test("past-due banner, start new week grace, and renew due times", async ({ page }) => {
     await authenticate(page);
+    await page.request.post("/api/week/renew");
 
     // Create a dedicated category with dueDay=1 (Monday) and dueTime=00:01
     // Monday is always in the past by Tuesday–Saturday, guaranteeing overdue state.
@@ -190,6 +328,12 @@ test.describe("Church Tech Checklist", () => {
     const banner = page.locator(".ban");
     await expect(banner).toBeVisible({ timeout: 12000 });
     await expect(banner).toContainText("past due");
+    const bannerTransitions = await banner.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { properties: style.transitionProperty, durations: style.transitionDuration };
+    });
+    expect(bannerTransitions.properties).toContain("opacity");
+    expect(bannerTransitions.properties).toContain("transform");
 
     // Check the task, start a new week → banner should disappear (grace period)
     await taskRow.locator('input[type="checkbox"]').check();
@@ -246,6 +390,7 @@ test.describe("Church Tech Checklist", () => {
   });
 
   test("drag a task between categories and persist after reload", async ({ page }) => {
+    page.on("console", (msg) => console.log("E2E BROWSER:", msg.text()));
     await authenticate(page);
 
     const catAlphaName = "Alpha " + Math.random().toString(36).slice(2, 6);
@@ -292,5 +437,87 @@ test.describe("Church Tech Checklist", () => {
     await expect(page.locator("h1")).toHaveText("Church tech checklist", { timeout: 15000 });
     const reloadedBeta = page.locator(`section[data-cat]:has-text("${catBetaName}")`);
     await expect(reloadedBeta.locator(`.row:has-text("${itemName}")`)).toBeVisible({ timeout: 10000 });
+  });
+
+  test("imports a versioned Church Tech Checklist backup and restores supported settings", async ({ page }) => {
+    await authenticate(page);
+
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const categoryId = `backup-${suffix}`;
+    const taskId = `backup-task-${suffix}`;
+    const backup = {
+      format: "church-tech-checklist-backup",
+      formatVersion: 1,
+      exportedAt: "2026-10-31T21:59:25.348Z",
+      source: { app: "Church Tech Checklist", storage: "account" },
+      counts: { categories: 2, tasks: 1, history: 1 },
+      fieldNotes: { "tasks.cat": "category id" },
+      data: {
+        categories: [
+          { id: "general", name: "Auditorium", order: 10, due: "07:50", dueDay: null, builtIn: true },
+          { id: categoryId, name: "Backup category", order: 20, due: "20:00", dueDay: null },
+        ],
+        tasks: [{
+          id: taskId,
+          text: "Imported task",
+          done: true,
+          cat: categoryId,
+          order: 11,
+          at: 1793333679073,
+          due: "09:00",
+          star: true,
+        }],
+        history: [{
+          week: "2026-10-19",
+          done: 1,
+          total: 1,
+          at: 1793333398246,
+          detail: [{ n: "Backup category", d: 1, t: 1 }],
+        }],
+        appState: { week: "2026-10-26", startedAt: 1793333398247 },
+      },
+      settings: {
+        shared: { defaultDueDay: 4 },
+        device: {
+          theme: { acc: 1 },
+          collapsedCategories: { [categoryId]: true },
+        },
+      },
+    };
+
+    await page.goto("/import");
+    await expect(page.getByText("Drop your JSON backup here")).toBeVisible();
+    await expect(page.getByText("Or paste JSON instead")).toBeVisible();
+    await page.locator("#backupFile").setInputFiles({
+      name: "church-tech-checklist-backup.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(backup)),
+    });
+    await expect(page.locator(".import-file-hint")).toContainText(
+      "church-tech-checklist-backup.json"
+    );
+    await expect(page.locator(".import-paste")).toHaveAttribute("open", "");
+    await expect(page.locator("textarea")).toContainText("Imported task");
+    await page.getByRole("button", { name: "Import" }).click();
+    await expect(page.locator(".form-message.success")).toContainText(
+      "Imported 2 categories, 1 task, and 1 history record."
+    );
+
+    const importedState = await page.request.get("/api/state").then((response) => response.json());
+    expect(importedState.categories.find((category: { id: string }) => category.id === categoryId).dueDay).toBe(4);
+    expect(importedState.tasks.find((task: { id: string }) => task.id === taskId)).toMatchObject({
+      done: true,
+      categoryId,
+      dueTime: "09:00",
+      starred: true,
+    });
+    expect(importedState.history.some((entry: { week: string }) => entry.week === "2026-10-19")).toBe(true);
+    expect(importedState.appState).toMatchObject({ currentWeek: "2026-10-26" });
+    await expect.poll(() =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("church-tech-theme") || "{}"))
+    ).toEqual({ acc: 1 });
+    await expect.poll(() =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("church-tech-collapsed-v1") || "{}"))
+    ).toEqual({ [categoryId]: true });
   });
 });

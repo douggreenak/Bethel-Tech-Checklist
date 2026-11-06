@@ -54,19 +54,18 @@ export default function LoginPage() {
   };
 
   return (
-    <main style={{ minHeight: "80vh", display: "grid", placeItems: "center" }}>
-      <div className="addcard" style={{ maxWidth: 420, width: "100%", padding: 28 }}>
-        <h1 style={{ fontSize: "1.75rem", margin: "0 0 8px" }}>Church tech checklist</h1>
-        <p className="sub" style={{ margin: "0 0 20px" }}>
+    <main className="auth-page">
+      <div className="addcard auth-card">
+        <h1>Church tech checklist</h1>
+        <p className="sub">
           Enter the team passcode to access the shared weekly checklist.
         </p>
 
-        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <form className="auth-form" onSubmit={handleLogin}>
           <input
             ref={inputRef}
             type="password"
             className="editin"
-            style={{ margin: 0 }}
             placeholder="Team passcode"
             aria-label="Team passcode"
             autoComplete="current-password"
@@ -75,7 +74,7 @@ export default function LoginPage() {
           />
 
           {error && (
-            <p style={{ color: "var(--bad)", fontSize: "0.9rem", margin: "2px 4px" }}>
+            <p className="form-message error" role="alert">
               {error}
             </p>
           )}
@@ -84,7 +83,7 @@ export default function LoginPage() {
             type="submit"
             className="btn"
             disabled={loading}
-            style={{ alignSelf: "flex-end", minHeight: 48, minWidth: 120 }}
+            style={{ alignSelf: "flex-end", minWidth: 120 }}
           >
             {loading ? "Checking..." : "Enter"}
           </button>

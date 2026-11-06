@@ -9,18 +9,6 @@ export async function GET() {
   try {
     const tz = process.env.TEAM_TIMEZONE || "America/Chicago";
 
-    // Ensure general category exists
-    const genCheck = await db.select().from(categories).where(eq(categories.id, "general"));
-    if (genCheck.length === 0) {
-      await db.insert(categories).values({
-        id: "general",
-        name: "General",
-        sortOrder: 0,
-        dueTime: "",
-        dueDay: null,
-      }).onConflictDoNothing();
-    }
-
     // Ensure app_state exists
     let stateRow = await db.select().from(appState).where(eq(appState.id, 1));
     if (stateRow.length === 0) {
@@ -33,9 +21,11 @@ export async function GET() {
       stateRow = await db.select().from(appState).where(eq(appState.id, 1));
     }
 
-    const allCategories = await db.select().from(categories).orderBy(asc(categories.sortOrder));
-    const allTasks = await db.select().from(tasks).orderBy(asc(tasks.sortOrder));
-    const allHistory = await db.select().from(weekHistory).orderBy(desc(weekHistory.week));
+    const [allCategories, allTasks, allHistory] = await Promise.all([
+      db.select().from(categories).orderBy(asc(categories.sortOrder)),
+      db.select().from(tasks).orderBy(asc(tasks.sortOrder)),
+      db.select().from(weekHistory).orderBy(desc(weekHistory.week)),
+    ]);
 
     // Check if category rebalance is needed
     if (allCategories.length > 1) {

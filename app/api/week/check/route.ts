@@ -3,12 +3,15 @@ import { db } from "@/lib/db";
 import { appState, categories, tasks, weekHistory } from "@/lib/schema";
 import { asc, eq } from "drizzle-orm";
 import { executeRollWeek } from "@/lib/roll";
+import { weekKey } from "@/lib/time";
 
 export async function POST() {
   try {
     const tz = process.env.TEAM_TIMEZONE || "America/Chicago";
+    const now = Date.now();
+    const targetWeek = weekKey(now, tz);
 
-    // Load state, tasks, categories
+    // Load state first so unchanged weeks can return without reading task data.
     let stateList = await db.select().from(appState).where(eq(appState.id, 1));
     if (stateList.length === 0) {
       await db.insert(appState).values({ id: 1, currentWeek: "", startedAt: null }).onConflictDoNothing();
@@ -16,15 +19,21 @@ export async function POST() {
     }
     const state = stateList[0];
 
-    const allCategories = await db.select().from(categories).orderBy(asc(categories.sortOrder));
-    const allTasks = await db.select().from(tasks).orderBy(asc(tasks.sortOrder));
+    if (state.currentWeek === targetWeek) {
+      return NextResponse.json({ rolled: false, currentWeek: targetWeek });
+    }
+
+    const [allCategories, allTasks] = await Promise.all([
+      db.select().from(categories).orderBy(asc(categories.sortOrder)),
+      db.select().from(tasks).orderBy(asc(tasks.sortOrder)),
+    ]);
 
     const rollResult = executeRollWeek({
       currentWeek: state.currentWeek,
       startedAt: state.startedAt,
       tasks: allTasks,
       categories: allCategories,
-      now: Date.now(),
+      now,
       timeZone: tz,
     });
 

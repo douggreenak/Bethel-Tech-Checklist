@@ -9,6 +9,8 @@ import {
   COOKIE_NAME,
 } from "@/lib/auth";
 
+const SESSION_COOKIE_MAX_AGE = 10 * 365 * 24 * 60 * 60;
+
 const LoginSchema = z.object({
   passcode: z.string().min(1, "Passcode is required"),
 });
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 90 * 24 * 60 * 60, // 90 days
+      maxAge: SESSION_COOKIE_MAX_AGE,
     });
 
     return response;

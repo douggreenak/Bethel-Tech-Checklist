@@ -20,6 +20,7 @@ import {
   applyAutoMinimizeState,
   applyAutoExpandState,
   applyManualToggle,
+  computeCategoryDropOrder,
 } from "@/lib/order";
 import {
   THEME_STORAGE_KEY,
@@ -71,6 +72,8 @@ export default function ChecklistPage() {
   const [theme, setTheme] = useState<ThemeConfig>({});
   const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
   const [autoCollapsedMap, setAutoCollapsedMap] = useState<Record<string, boolean>>({});
+  const collapsedMapRef = useRef(collapsedMap);
+  const autoCollapsedMapRef = useRef(autoCollapsedMap);
 
   // UI state
   const [newTaskText, setNewTaskText] = useState("");
@@ -87,6 +90,14 @@ export default function ChecklistPage() {
   const newTaskInputRef = useRef<HTMLInputElement>(null);
   const newCatInputRef = useRef<HTMLInputElement>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    collapsedMapRef.current = collapsedMap;
+  }, [collapsedMap]);
+
+  useEffect(() => {
+    autoCollapsedMapRef.current = autoCollapsedMap;
+  }, [autoCollapsedMap]);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -343,24 +354,20 @@ export default function ChecklistPage() {
     // Auto-minimize check
     if (checked) {
       setTimeout(() => {
-        // Read both states atomically by computing the result and applying both
-        setCollapsedMap((curC) => {
-          let resultCollapsed = curC;
-          setAutoCollapsedMap((curA) => {
-            const res = applyAutoMinimizeState({
-              categoryId: task.categoryId,
-              tasks: updatedTasks,
-              collapsedMap: curC,
-              autoCollapsedMap: curA,
-            });
-            if (res.didAutoCollapse) {
-              resultCollapsed = res.collapsedMap;
-              saveCollapsed(res.collapsedMap, res.autoCollapsedMap);
-            }
-            return res.autoCollapsedMap;
-          });
-          return resultCollapsed;
+        const result = applyAutoMinimizeState({
+          categoryId: task.categoryId,
+          tasks: updatedTasks,
+          collapsedMap: collapsedMapRef.current,
+          autoCollapsedMap: autoCollapsedMapRef.current,
         });
+
+        if (result.didAutoCollapse) {
+          collapsedMapRef.current = result.collapsedMap;
+          autoCollapsedMapRef.current = result.autoCollapsedMap;
+          setCollapsedMap(result.collapsedMap);
+          setAutoCollapsedMap(result.autoCollapsedMap);
+          saveCollapsed(result.collapsedMap, result.autoCollapsedMap);
+        }
       }, 700);
     }
 
@@ -408,15 +415,20 @@ export default function ChecklistPage() {
     }
   };
 
-  // Update Task Text / DueTime
+  // Update Task Text / DueTime / Category
   const handleUpdateTask = async (
     task: TaskData,
     text: string,
-    dueTime: string
+    dueTime: string,
+    newCategoryId?: string
   ) => {
     const previousTasks = [...tasks];
+    const targetCatId =
+      newCategoryId && newCategoryId !== task.categoryId
+        ? newCategoryId
+        : task.categoryId;
     const updatedTasks = tasks.map((t) =>
-      t.id === task.id ? { ...t, text, dueTime } : t
+      t.id === task.id ? { ...t, text, dueTime, categoryId: targetCatId } : t
     );
 
     mutate(
@@ -425,10 +437,17 @@ export default function ChecklistPage() {
     );
 
     try {
+      const payload: { text: string; dueTime: string; categoryId?: string } = {
+        text,
+        dueTime,
+      };
+      if (newCategoryId && newCategoryId !== task.categoryId) {
+        payload.categoryId = newCategoryId;
+      }
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, dueTime }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Failed to update task");
       mutate();
@@ -755,14 +774,35 @@ export default function ChecklistPage() {
               add your weekly tasks.
             </div>
           ) : (
-            categories.map((cat) => (
+            categories.map((cat, idx) => (
               <Category
                 key={cat.id}
                 category={cat}
+                categories={categories}
                 tasks={tasks.filter((t) => t.categoryId === cat.id)}
                 timezone={timezone}
                 isCollapsed={Boolean(collapsedMap[cat.id])}
                 overdueTaskIds={overdueTaskIds}
+                canMoveUp={idx > 0}
+                canMoveDown={idx < categories.length - 1}
+                onMoveUp={() => {
+                  if (idx === 0) return;
+                  const others = categories.filter((c) => c.id !== cat.id);
+                  const newOrder = computeCategoryDropOrder({
+                    categories: others,
+                    dropIndex: idx - 1,
+                  });
+                  handleCategoryDrop(cat.id, newOrder);
+                }}
+                onMoveDown={() => {
+                  if (idx >= categories.length - 1) return;
+                  const others = categories.filter((c) => c.id !== cat.id);
+                  const newOrder = computeCategoryDropOrder({
+                    categories: others,
+                    dropIndex: idx + 1,
+                  });
+                  handleCategoryDrop(cat.id, newOrder);
+                }}
                 onToggleCollapse={() => handleToggleCategoryCollapse(cat.id)}
                 onResetCategory={() => handleResetCategory(cat)}
                 onUpdateCategory={(name, dueTime, dueDay) => {
@@ -891,13 +931,14 @@ export default function ChecklistPage() {
 
       <Fab
         onClick={() => {
+          const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           newTaskInputRef.current?.scrollIntoView({
-            behavior: "smooth",
+            behavior: reduceMotion ? "auto" : "smooth",
             block: "center",
           });
           setTimeout(() => {
             newTaskInputRef.current?.focus();
-          }, 350);
+          }, reduceMotion ? 0 : 350);
         }}
       />
 

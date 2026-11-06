@@ -23,9 +23,10 @@ interface TaskRowProps {
   categoryDueDay: number | null;
   timezone: string;
   isOverdue: boolean;
+  categories?: Array<{ id: string; name: string }>;
   onToggleDone: (checked: boolean) => void;
   onToggleStar: () => void;
-  onUpdate: (text: string, dueTime: string) => void;
+  onUpdate: (text: string, dueTime: string, newCategoryId?: string) => void;
   onDelete: () => void;
   onGripPointerDown: (e: React.PointerEvent<HTMLDivElement>, task: TaskData) => void;
 }
@@ -37,6 +38,7 @@ export function TaskRow({
   categoryDueDay,
   timezone,
   isOverdue,
+  categories,
   onToggleDone,
   onToggleStar,
   onUpdate,
@@ -76,9 +78,11 @@ export function TaskRow({
         categoryDueTime={categoryDueTime}
         categoryDueDay={categoryDueDay}
         timezone={timezone}
-        onSave={(text, dueTime) => {
+        categories={categories}
+        currentCategoryId={task.categoryId}
+        onSave={(text, dueTime, newCategoryId) => {
           setIsEditing(false);
-          onUpdate(text, dueTime);
+          onUpdate(text, dueTime, newCategoryId);
         }}
         onCancel={() => setIsEditing(false)}
       />

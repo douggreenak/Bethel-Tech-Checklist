@@ -8,7 +8,6 @@ import { and, gt, sql } from "drizzle-orm";
 
 import { COOKIE_NAME } from "./constants";
 export { COOKIE_NAME };
-const SESSION_EXPIRY = 90 * 24 * 60 * 60; // 90 days in seconds
 
 function getSecretKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET || "church-tech-checklist-fallback-secret-at-least-32-chars-long";
@@ -33,7 +32,6 @@ export async function createSessionToken(): Promise<string> {
   return new SignJWT({ team: true })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("90d")
     .sign(secret);
 }
 
