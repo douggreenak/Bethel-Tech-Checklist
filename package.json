@@ -7,9 +7,11 @@
     "build": "node scripts/migrate.mjs && next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "test": "vitest run",
+    "test:e2e:quick": "playwright test --project=phone --retries=0",
     "e2e": "playwright test"
   },
   "dependencies": {

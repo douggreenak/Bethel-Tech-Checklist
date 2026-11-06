@@ -95,11 +95,19 @@ pnpm dev
 | `pnpm dev` | Start Next.js dev server on port 3000 |
 | `pnpm build` | Run DB migrations then build for production |
 | `pnpm start` | Start production server |
-| `pnpm test` | Run Vitest unit tests (26 tests) |
-| `pnpm e2e` | Run Playwright e2e tests (16 tests × 2 viewports) |
+| `pnpm typecheck` | Run the TypeScript compiler without emitting files |
+| `pnpm test` | Run the complete Vitest unit suite |
+| `pnpm test:e2e:quick -- tests/e2e/checklist.spec.ts --grep "category"` | Run matching browser tests on phone only, without retrying failures |
+| `pnpm e2e` | Run the full Playwright suite on phone and tablet with configured retries |
 | `pnpm db:generate` | Generate a new Drizzle migration after schema changes |
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm lint` | Run ESLint |
+
+For small changes, start with the narrowest relevant check, for example
+`pnpm test -- tests/unit/import.test.ts` or the focused browser command above.
+Run the full browser suite for cross-screen or interaction changes, and run
+`pnpm build` for production configuration, dependency, or deployment-critical
+changes. These focused commands supplement rather than replace the full checks.
 
 ---
 
