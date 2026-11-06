@@ -22,7 +22,9 @@ interface TaskEditorProps {
   categoryDueTime: string;
   categoryDueDay: number | null;
   timezone: string;
-  onSave: (text: string, dueTime: string) => void;
+  categories?: Array<{ id: string; name: string }>;
+  currentCategoryId?: string;
+  onSave: (text: string, dueTime: string, newCategoryId?: string) => void;
   onCancel: () => void;
 }
 
@@ -44,6 +46,9 @@ export function EditorInline(props: EditorProps) {
   const [dueTime, setDueTime] = useState(props.initialDueTime || "");
   const [dueDay, setDueDay] = useState<number>(
     props.type === "category" ? props.initialDueDay ?? 0 : 0
+  );
+  const [selectedCatId, setSelectedCatId] = useState<string>(
+    props.type === "task" ? props.currentCategoryId || "" : ""
   );
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +73,7 @@ export function EditorInline(props: EditorProps) {
     if (!trimmed) return;
 
     if (props.type === "task") {
-      props.onSave(trimmed, dueTime);
+      props.onSave(trimmed, dueTime, selectedCatId);
     } else {
       props.onSave(trimmed, dueTime, dueDay);
     }
@@ -120,6 +125,23 @@ export function EditorInline(props: EditorProps) {
           >
             <Icon name="close" />
           </button>
+        )}
+        {props.categories && props.categories.length > 1 && (
+          <>
+            <span className="timelb2">Category</span>
+            <select
+              className="timein"
+              value={selectedCatId}
+              onChange={(e) => setSelectedCatId(e.target.value)}
+              aria-label="Category"
+            >
+              {props.categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </>
         )}
         <span className="timehint">{hint}</span>
         <button type="button" className="btn" onClick={handleSave}>

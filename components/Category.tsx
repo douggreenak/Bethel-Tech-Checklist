@@ -24,10 +24,15 @@ interface CategoryProps {
   onResetCategory: () => void;
   onUpdateCategory: (name: string, dueTime: string, dueDay: number) => void;
   onDeleteCategory: () => void;
+  categories?: CategoryData[];
   onToggleTaskDone: (task: TaskData, checked: boolean) => void;
   onToggleTaskStar: (task: TaskData) => void;
-  onUpdateTask: (task: TaskData, text: string, dueTime: string) => void;
+  onUpdateTask: (task: TaskData, text: string, dueTime: string, newCategoryId?: string) => void;
   onDeleteTask: (task: TaskData) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   onGripPointerDown: (e: React.PointerEvent<HTMLDivElement>, category: CategoryData) => void;
   onTaskGripPointerDown: (e: React.PointerEvent<HTMLDivElement>, task: TaskData) => void;
 }
@@ -35,6 +40,7 @@ interface CategoryProps {
 export function Category({
   category,
   tasks,
+  categories,
   timezone,
   isCollapsed,
   overdueTaskIds,
@@ -46,6 +52,10 @@ export function Category({
   onToggleTaskStar,
   onUpdateTask,
   onDeleteTask,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
   onGripPointerDown,
   onTaskGripPointerDown,
 }: CategoryProps) {
@@ -139,6 +149,34 @@ export function Category({
           </button>
 
           <span className="acts">
+            {canMoveUp && onMoveUp && (
+              <button
+                type="button"
+                className="pen"
+                data-l="Move up"
+                aria-label={`Move ${category.name} up`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveUp();
+                }}
+              >
+                <Icon name="chevron-up" />
+              </button>
+            )}
+            {canMoveDown && onMoveDown && (
+              <button
+                type="button"
+                className="pen"
+                data-l="Move down"
+                aria-label={`Move ${category.name} down`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveDown();
+                }}
+              >
+                <Icon name="chevron-down" />
+              </button>
+            )}
             <button
               type="button"
               className="pen"
@@ -187,7 +225,7 @@ export function Category({
         inert={isCollapsed}
         aria-hidden={isCollapsed}
       >
-        <div className="catbody-inner">
+        <div className="catbody-inner" data-cat={category.id}>
           {sortedTasks.map((t) => (
             <TaskRow
               key={t.id}
@@ -197,9 +235,10 @@ export function Category({
               categoryDueDay={category.dueDay}
               timezone={timezone}
               isOverdue={overdueTaskIds.has(t.id)}
+              categories={categories}
               onToggleDone={(chk) => onToggleTaskDone(t, chk)}
               onToggleStar={() => onToggleTaskStar(t)}
-              onUpdate={(txt, due) => onUpdateTask(t, txt, due)}
+              onUpdate={(txt, due, newCatId) => onUpdateTask(t, txt, due, newCatId)}
               onDelete={() => onDeleteTask(t)}
               onGripPointerDown={onTaskGripPointerDown}
             />

@@ -390,6 +390,7 @@ test.describe("Church Tech Checklist", () => {
   });
 
   test("drag a task between categories and persist after reload", async ({ page }) => {
+    page.on("console", (msg) => console.log("E2E BROWSER:", msg.text()));
     await authenticate(page);
 
     const catAlphaName = "Alpha " + Math.random().toString(36).slice(2, 6);
